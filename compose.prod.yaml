@@ -3,19 +3,59 @@ version: "3.4"
 # Production environment override
 services:
   php:
-    build:
-      context: ./api
-      target: frankenphp_prod
+    image: 261573584046.dkr.ecr.us-east-2.amazonaws.com/affine-tenant-php:v2
     environment:
-      APP_SECRET: ${APP_SECRET}
-      MERCURE_PUBLISHER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
-      MERCURE_SUBSCRIBER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
+      PWA_UPSTREAM: pwa:3000
+      SERVER_NAME: :80
+      APP_SECRET: ChangeMe
+      MERCURE_PUBLISHER_JWT_KEY: ChangeThisMercureHubJWTSecretKey
+      MERCURE_SUBSCRIBER_JWT_KEY: ChangeThisMercureHubJWTSecretKey
+      TRUSTED_PROXIES: 0.0.0.0/0
+      TRUSTED_HOSTS: ^localhost|php$
+      DATABASE_URL: postgresql://app:ChangeMe@database:5432/app?serverVersion=15&charset=utf8
+      MERCURE_URL: http://php/.well-known/mercure
+      MERCURE_PUBLIC_URL: http://localhost/.well-known/mercure
+      MERCURE_JWT_SECRET: ChangeThisMercureHubJWTSecretKey
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      # HTTP
+      - target: 80
+        published: ${HTTP_PORT:-80}
+        protocol: tcp
 
   pwa:
-    build:
-      context: ./pwa
-      target: prod
-
-  database:
+    image: 261573584046.dkr.ecr.us-east-2.amazonaws.com/affine-tenant-pwa:latest
+    # build:
+    #   context: ./pwa
+    #   target: prod
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      NEXT_PUBLIC_ENTRYPOINT: http://localhost
+
+###> doctrine/doctrine-bundle ###
+  database:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=app
+      # You should definitely change the password in production
+      - POSTGRES_PASSWORD=ChangeMe
+      - POSTGRES_USER=app
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      # you may use a bind-mounted host directory instead, so that it is harder to accidentally remove the volume and lose all your data!
+      # - ./api/docker/db/data:/var/lib/postgresql/data
+###< doctrine/doctrine-bundle ###
+
+# Mercure is installed as a Caddy module, prevent the Flex recipe from installing another service
+###> symfony/mercure-bundle ###
+###< symfony/mercure-bundle ###
+
+volumes:
+  caddy_data:
+  caddy_config:
+###> doctrine/doctrine-bundle ###
+  db_data:
+###< doctrine/doctrine-bundle ###
+###> symfony/mercure-bundle ###
+###< symfony/mercure-bundle ###
